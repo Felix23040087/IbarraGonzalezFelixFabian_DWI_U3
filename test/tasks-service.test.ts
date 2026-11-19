@@ -1,0 +1,13 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+const state = vi.hoisted(() => ({ claims: "user-1" as string | null, rows: [{ id: "9f1b1901-f5ee-4124-b60d-e9d7e6eeb8aa", user_id: "user-1", title: "Leer", description: null, priority: "media", due_date: null, status: "pendiente", created_at: "2026-01-01T00:00:00.000Z" }] }));
+vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ auth: { getClaims: async () => ({ data: state.claims ? { claims: { sub: state.claims } } : { claims: null }, error: null }) } }) }));
+vi.mock("@/lib/repositories/tasks", () => ({ TaskRepository: class { list(){return {data:state.rows,error:null}} get(user:string,id:string){return {data:state.rows.find(r=>r.id===id&&r.user_id===user)??null,error:null}} create(user:string,input:Record<string,unknown>){const row={...input,id:"b8221f7a-f8ef-46eb-a150-ff897b16bf81",user_id:user,created_at:"2026-01-02T00:00:00.000Z",status:"pendiente"};state.rows.unshift(row as typeof state.rows[number]);return {data:row,error:null}} update(user:string,id:string,input:Record<string,unknown>){const index=state.rows.findIndex(r=>r.id===id&&r.user_id===user);if(index<0)return {data:null,error:null};state.rows[index]={...state.rows[index],...input};return {data:state.rows[index],error:null}} delete(user:string,id:string){const index=state.rows.findIndex(r=>r.id===id&&r.user_id===user);if(index<0)return {data:null,error:null};state.rows.splice(index,1);return {data:{id},error:null}} } }));
+import { createTask, getTask, listTasks, patchTask, removeTask } from "@/lib/services/tasks";
+const id="9f1b1901-f5ee-4124-b60d-e9d7e6eeb8aa";
+beforeEach(()=>{state.claims="user-1";state.rows=[{id,user_id:"user-1",title:"Leer",description:null,priority:"media",due_date:null,status:"pendiente",created_at:"2026-01-01T00:00:00.000Z"}];});
+describe("servicio REST de tareas",()=>{
+ it("deniega el acceso sin autenticación",async()=>{state.claims=null;const response=await listTasks();expect(response.status).toBe(401);});
+ it("lista y crea tareas del usuario",async()=>{expect((await listTasks()).status).toBe(200);const response=await createTask({title:"Nueva"});expect(response.status).toBe(201);expect(state.rows[0]!.user_id).toBe("user-1");});
+ it("obtiene, actualiza y elimina tareas",async()=>{expect((await getTask(id)).status).toBe(200);expect((await patchTask(id,{status:"completada"})).status).toBe(200);expect(state.rows[0]!.status).toBe("completada");expect((await removeTask(id)).status).toBe(204);});
+ it("no revela tareas de otro usuario",async()=>{expect((await getTask("9f1b1901-f5ee-4124-b60d-e9d7e6eeb8aa")).status).toBe(200);state.claims="other-user";expect((await getTask(id)).status).toBe(404);});
+});
