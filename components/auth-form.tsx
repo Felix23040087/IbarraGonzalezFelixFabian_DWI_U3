@@ -14,7 +14,7 @@ export function AuthForm({ mode }: { mode: "login" | "registro" }) {
     try {
       const supabase = createClient();
       if (isSignup) {
-        const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ?? `${window.location.origin}/auth/callback` } });
+        const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ? process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL : `${window.location.origin}/auth/callback` } });
         if (error) { setMessage(error.message.includes("Password") ? "La contraseña debe tener al menos 6 caracteres." : "No se pudo crear la cuenta. Revisa tus datos e inténtalo de nuevo."); return; }
         if (!data.session) { setMessage("Cuenta creada. Confirma tu correo para iniciar sesión."); return; }
       } else {
